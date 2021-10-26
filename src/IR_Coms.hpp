@@ -2,6 +2,8 @@
 #define IR_COMS_HPP
 
 const int sampleValSize = 8;
+const int syncSize = 4;
+
 const long interval = 125; // interval at which to blink (microseconds)
 
 class IR_Com
@@ -16,41 +18,56 @@ private:
     const int my_Pin;
     unsigned long base_time = 0; // will store last time LED was updated
     int sampledVals[sampleValSize] = {0, 0, 0, 0, 0, 0, 0, 0};
-    
+    unsigned long[syncSize] 
+    int last_state = 0;
 
 public:
     IR_Reciver(int recPin) : my_Pin(recPin)
     {
         pinMode(recPin, INPUT_PULLUP);
+        base_time = micros(`66-`-);
     }
     ~IR_Reciver();
 
     void Loop()
     {
-        unsigned long currentMicro = micros();
-        unsigned long intervalMicro = currentMicro - previousMicro;
+        // unsigned long currentMicro = micros();
+        // unsigned long intervalMicro = currentMicro - previousMicro;
 
-        if (intervalMicro >= interval)
-        {
-            onStateChange();
+        // if (intervalMicro >= interval)
+        // {
+        //     onStateChange();
 
-            previousMicro = currentMicro;
+        //     previousMicro = currentMicro;
+        // }
+        // if (currentPos == sampleValSize)
+        // {
+
+        //     onByteRec();
+        //     currentPos = 0;
+        // 
+
+        int currrent_state = digitalRead(my_Pin);
+
+        // First wait for the first bit to change to
+        if(currrent_state != last_state){
+           
         }
-        if (currentPos == sampleValSize)
-        {
+        
+        // Then sync using the sync bits to the
 
-            onByteRec();
-            currentPos = 0;
-        }
+        // Then after 4 sync bits start waiting for start bits
+
+
     }
 
 private:
-    void onStateChange()
-    {
-        int sample = digitalRead(2);
-        sampledVals[currentPos] = sample;
-        currentPos++;
-    }
+    // bool onStateChange()
+    // {
+    //     int sample = digitalRead(2);
+    //     sampledVals[currentPos] = sample;
+    //     currentPos++;
+    // }
 
     void onByteRec()
     {
