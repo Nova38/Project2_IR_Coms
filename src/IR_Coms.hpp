@@ -25,7 +25,7 @@ public:
     IR_Reciver(int recPin) : my_Pin(recPin)
     {
         pinMode(recPin, INPUT_PULLUP);
-        base_time = micros(`66-`-);
+        base_time = micros();
     }
     ~IR_Reciver();
 
