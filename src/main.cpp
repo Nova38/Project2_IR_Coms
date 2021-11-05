@@ -28,40 +28,41 @@ void increment()
 	// unsigned long input_time = micros();; // current input time
 
 	// for testing with button
-	unsigned long input_time = micros();; // current input time
-	if(base_time==0) {
-		base_time =input_time;
-	}
-	
-
-
-	//check to see if increment() was called in the last 250 milliseconds
-	if (input_time - last_input_time > interval)
+	unsigned long input_time = millis();
+	; // current input time
+	if (base_time == 0)
 	{
-		if (buffer_Full || current_sample == size_sample_buffer)
+		base_time = input_time;
+	}
+
+	// check to see if increment() was called in the last 250 milliseconds
+	// if (input_time - last_input_time >= interval)
+	{
+		if (buffer_Full )
 		{
 			return; // dont add data till the main loop has a chance to use it
 		}
 		else
 		{
-			last_input_time = input_time;
-			sample_buffer[current_sample] = floor((input_time - base_time) / (float)interval);
-
+			sample_buffer[current_sample] = ((input_time - last_input_time) / interval);
+			Serial.println(last_input_time);
 			current_sample++;
 			if (current_sample == size_sample_buffer)
 			{
 				buffer_Full = true;
 			}
+						last_input_time = input_time;
+
 		}
 	}
 }
 
 void setup()
 {
-	//start serial connection
-	// Serial.begin(115200);
+	// start serial connection
+	Serial.begin(115200);
 
-	Serial.begin(9600);
+	//  Serial.begin(9600);
 
 	pinMode(recPin, INPUT_PULLUP);
 	attachInterrupt(0, increment, CHANGE);
@@ -72,16 +73,16 @@ void setup()
 	}
 
 	// reciver = new IR_Reciver(recPin);
-	//configure pin 2 as an input and enable the internal pull-up resistor
+	// configure pin 2 as an input and enable the internal pull-up resistor
 	// pinMode(13, OUTPUT);
 }
 
-//variables to keep track of the timing of recent interrupts
+// variables to keep track of the timing of recent interrupts
 
 void loop()
 {
-	// delay(300);							 //pretend to be doing something useful
-	// Serial.println(current_sample, DEC); //print current_sample to serial monitor
+	// delay(300);               //pretend to be doing something useful
+	//  Serial.println(current_sample, DEC); //print current_sample to serial monitor
 
 	if (buffer_Full)
 	{
@@ -91,6 +92,7 @@ void loop()
 		{
 			Serial.print(sample_buffer[i]);
 			Serial.print(" ");
+			sample_buffer[i] = 0;
 		}
 
 		buffer_Full = false;
@@ -98,4 +100,8 @@ void loop()
 		base_time = 0;
 		interrupts();
 	}
+
+
+	
+	
 }
