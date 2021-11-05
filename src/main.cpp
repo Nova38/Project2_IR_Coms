@@ -3,105 +3,87 @@
 
 // constants won't change. Used here to set a pin number:
 const int recPin = 2;
-// const int transPin = 2;
+
+const int transPin = 3;
 // Generally, you should use "unsigned long" for variables that hold time
 
-const long interval = 125;	 // interval at which to blink (microseconds)
-unsigned long base_time = 0; // will store the start of the current cycles time
+// const long interval = 125;	 // interval at which to blink (microseconds)
+// unsigned long base_time = 0; // will store the start of the current cycles time
 
-unsigned long last_input_time = 0;
+// unsigned long last_input_time = 0;
 // IR_Reciver *reciver;
 // IR_Trasmitter *transmitter;
 
-const int size_sample_buffer = 20;
-const int syncSize = 4;
+// const int size_sample_buffer = 20;
+// const int syncSize = 4;
 
-volatile double sample_buffer[size_sample_buffer];
-volatile int sample_value_buffer[size_sample_buffer];
+// volatile double sample_buffer[size_sample_buffer];
+// volatile int sample_value_buffer[size_sample_buffer];
 
-volatile int current_sample = 0; // variable to be updated by the interrupt
-volatile bool buffer_Full = false;
+// volatile int current_sample = 0; // variable to be updated by the interrupt
+// volatile bool buffer_Full = false;
 
-// Interrupt service routine for interrupt 0
-void increment()
-{
-	// unsigned long input_time = micros();; // current input time
-
-	// for testing with button
-	unsigned long input_time = millis();
-	; // current input time
-	if (base_time == 0)
-	{
-		base_time = input_time;
-	}
-
-	// check to see if increment() was called in the last 250 milliseconds
-	// if (input_time - last_input_time >= interval)
-	{
-		if (buffer_Full )
-		{
-			return; // dont add data till the main loop has a chance to use it
-		}
-		else
-		{
-			sample_buffer[current_sample] = ((input_time - last_input_time) / interval);
-			Serial.println(last_input_time);
-			current_sample++;
-			if (current_sample == size_sample_buffer)
-			{
-				buffer_Full = true;
-			}
-						last_input_time = input_time;
-
-		}
-	}
-}
-
+#define BASECLOCK 16000000
+int compareMatchReg;
+volatile int interrupts;
+volatile int pin_state = 0;
 void setup()
 {
-	// start serial connection
+	pinMode(recPin,INPUT);
+	pinMode(transPin,OUTPUT);
+	
 	Serial.begin(115200);
+	// initialize timer1 
+	noInterrupts();           // disable all interrupts
+	TCCR1A = 0;
+	TCCR1B = 0;
 
-	//  Serial.begin(9600);
+	// Set compareMatchReg to the correct value for our interrupt interval
+	// compareMatchReg = [16, 000, 000Hz / (prescaler * desired interrupt frequency)] - 1
+	
+	/* E.g. 1Hz with 1024 Pre-Scaler:
+z		compareMatchReg = [16, 000, 000 / (1024 * 1)] - 1 = 15624
+	
+	    As this is > 256 Timer 1 Must be used for this..
+	*/
+	compareMatchReg = 15624;   // preload timer from calc above
+	TCNT1 = compareMatchReg;   // preload timer
+	
 
-	pinMode(recPin, INPUT_PULLUP);
-	attachInterrupt(0, increment, CHANGE);
+	/*
+	Prescaler:
+		(timer speed(Hz)) = (Arduino clock speed(16MHz)) / prescaler
+			So 1Hz = 16000000 / 1 --> Prescaler: 1
+			Prescaler can equal the below values and needs the relevant bits setting
+			1    [CS10]
+			8    [CS11]
+			64   [CS11 + CS10]
+			256  [CS12]
+			1024 [CS12 + CS10]
+	*/
+	TCCR1B |= (1 << CS11);    // 8 prescaler 
 
-	for (int i = 0; i < size_sample_buffer; i++)
-	{
-		sample_buffer[i] = 0;
-	}
+	TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
 
-	// reciver = new IR_Reciver(recPin);
-	// configure pin 2 as an input and enable the internal pull-up resistor
-	// pinMode(13, OUTPUT);
+	
+	interrupts();             // enable all interrupts
 }
 
-// variables to keep track of the timing of recent interrupts
+ISR(TIMER1_OVF_vect)        // interrupt service routine 
+{
+	TCNT1 = compareMatchReg;   // preload timer
+	interrupts++;
+	// pin_state = digitalRead(recPin);
+	pin_state = !pin_state;
+	digitalWrite(transPin,pin_state);
+	// Serial.print("Total Ticks:");
+	// Serial.print(interrupts);
+	// Serial.print("\tPin State:");
+	// Serial.println(pin_state);
+
+}
 
 void loop()
 {
-	// delay(300);               //pretend to be doing something useful
-	//  Serial.println(current_sample, DEC); //print current_sample to serial monitor
-
-	if (buffer_Full)
-	{
-		noInterrupts();
-		Serial.print("\nBuffer Full;\n\tValues:");
-		for (int i = 0; i < size_sample_buffer; i++)
-		{
-			Serial.print(sample_buffer[i]);
-			Serial.print(" ");
-			sample_buffer[i] = 0;
-		}
-
-		buffer_Full = false;
-		current_sample = 0;
-		base_time = 0;
-		interrupts();
-	}
-
-
-	
-	
+	// your program here...
 }
