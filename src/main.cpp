@@ -29,13 +29,13 @@ volatile bool pin_current_state = 1;
 void setup()
 {
 
-	// TIMER 1 for interrupt frequency 6001.500375093773 Hz:
+	// TIMER 1 for interrupt frequency 2000 Hz:
 	cli();		// stop interrupts
 	TCCR1A = 0; // set entire TCCR1A register to 0
 	TCCR1B = 0; // same for TCCR1B
 	TCNT1 = 0;	// initialize counter value to 0
-	// set compare match register for 6001.500375093773 Hz increments
-	OCR1A = 2665; // = 16000000 / (1 * 6001.500375093773) - 1 (must be <65536)
+	// set compare match register for 2000 Hz increments
+	OCR1A = 7999; // = 16000000 / (1 * 2000) - 1 (must be <65536)
 	// turn on CTC mode
 	TCCR1B |= (1 << WGM12);
 	// Set CS12, CS11 and CS10 bits for 1 prescaler
@@ -43,7 +43,6 @@ void setup()
 	// enable timer compare interrupt
 	TIMSK1 |= (1 << OCIE1A);
 	sei(); // allow interrupts
-
 	pinMode(transPin, OUTPUT);
 	pinMode(recPin, INPUT);
 	Serial.begin(115200);
@@ -51,68 +50,61 @@ void setup()
 
 ISR(TIMER1_COMPA_vect)
 {
-	if (current_pin_in != 2)
+
+	current_pin_in = digitalRead(recPin);
+	int sum = pin_in[0] + pin_in[1] + pin_in[2];
+	if (sum > 1)
 	{
-		pin_in[current_pin_in] = digitalRead(recPin);
-		current_pin_in++;
+		pin_current_state = false;
 	}
 	else
 	{
-		pin_in[current_pin_in] = digitalRead(recPin);
-		current_pin_in = 0;
-		int sum = pin_in[0] + pin_in[1] + pin_in[2];
-		if(sum > 1){
-			pin_current_state = false;
-		}else{
-			pin_current_state = true;
-		}
+		pin_current_state = true;
+	}
+	// pin_current_state = digitalRead(recPin);
+
+	if (has_recived_start != true)
+	{
+		// look for a change from high to low
 		// pin_current_state = digitalRead(recPin);
 
-		if (has_recived_start != true)
+		if (pin_last_state && !pin_current_state)
 		{
-			// look for a change from high to low
-			// pin_current_state = digitalRead(recPin);
-			
-			if (pin_last_state && !pin_current_state)
-			{
-				has_recived_start = true;
-				pin_last_state = pin_current_state;
-				Serial.println("Found Start Bit");
-			}
-		
+			has_recived_start = true;
+			pin_last_state = pin_current_state;
+			Serial.println("Found Start Bit");
 		}
-		else
+	}
+	else
+	{
+		if (has_recived_end && pin_current_state)
 		{
-			if (has_recived_end && pin_current_state)
+			//
+			has_recived_start = true;
+			has_recived_end = false;
+			Serial.println("Cont Start ...");
+			return;
+		}
+
+		if (!has_recived_end)
+		{
+
+			if (current_buffer_bit == 15)
 			{
-				//
-				has_recived_start = true;
-				has_recived_end = false;
-				Serial.println("Cont Start ...");
-				return;
+				bitWrite(buffer, current_buffer_bit, pin_current_state);
+				current_buffer_bit++;
+				Serial.println(buffer, HEX);
+				Serial.println(buffer, BIN);
+
+				buffer = 0;
+				current_buffer_bit = 0;
+				// has_recived_start = false;
+				has_recived_end = true;
 			}
-
-			if (!has_recived_end)
+			else
 			{
-
-				if (current_buffer_bit == 15)
-				{
-					bitWrite(buffer, current_buffer_bit, pin_current_state);
-					current_buffer_bit++;
-					
-					Serial.println(buffer, HEX);
-					Serial.println(buffer, BIN);
-
-					buffer = 0;
-					current_buffer_bit = 0;
-					// has_recived_start = false;
-					has_recived_end = true;
-				}
-				else
-				{
-					bitWrite(buffer, current_buffer_bit, pin_current_state);
-					current_buffer_bit++;
-				}
+				bitWrite(buffer, current_buffer_bit, pin_current_state);
+				current_buffer_bit++;
 			}
 		}
 	}
