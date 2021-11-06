@@ -6,14 +6,14 @@ const int recPin = 2;
 const int transPin = 3;
 
 // message storage
-const int buffer_size = 7;
-byte buffer = 0;
+const int buffer_size = 15;
+int buffer = 0;
 volatile int current_buffer_bit = 0;
 
 // this is a flag for when the loop should print the buffer out
 volatile bool ready_to_print = false;
 volatile bool has_recived_start = false;
-volatile bool has_recived_end = false;
+volatile bool has_recived_end = true;
 
 volatile bool has_sampled_3times = false;
 
@@ -25,6 +25,16 @@ volatile bool pin_last_state = 1;
 volatile bool pin_current_state = 1;
 
 // working current byte
+
+void detectStart()
+{
+	if (!has_recived_start)
+	{
+		has_recived_start = true;
+		// has_recived_end = false;
+		Serial.println("Found Start Bit");
+	}
+}
 
 void setup()
 {
@@ -45,6 +55,9 @@ void setup()
 	sei(); // allow interrupts
 	pinMode(transPin, OUTPUT);
 	pinMode(recPin, INPUT);
+
+	attachInterrupt(digitalPinToInterrupt(recPin), detectStart, FALLING);
+
 	Serial.begin(115200);
 }
 
@@ -52,58 +65,65 @@ ISR(TIMER1_COMPA_vect)
 {
 
 	// current_pin_in = digitalRead(recPin);
-	
-	pin_current_state = digitalRead(recPin);
 
-	if (has_recived_start != true)
+	if (has_recived_start)
 	{
-		// look for a change from high to low
-		// pin_current_state = digitalRead(recPin);
+		pin_current_state = digitalRead(recPin);
 
-		if (pin_last_state && !pin_current_state)
+		if (current_buffer_bit == buffer_size)
 		{
-			has_recived_start = true;
-			pin_last_state = pin_current_state;
-			Serial.println("Found Start Bit");
+			bitWrite(buffer, current_buffer_bit, pin_current_state);
+			current_buffer_bit++;
+			// Serial.print("\tDetected : ");
+			// Serial.print(buffer, DEC);
+			// Serial.print(" : ");			
+			// Serial.print(buffer, HEX);
+			// Serial.print(" : ");
+			Serial.println(buffer, BIN);
+
+			buffer = 0;
+			current_buffer_bit = 0;
+			has_recived_start = false;
+			ready_to_print = true;
+			has_recived_end = true;
+		}
+		else
+		{
+			bitWrite(buffer, current_buffer_bit, pin_current_state);
+			current_buffer_bit++;
 		}
 	}
 
-	if (has_recived_start == true)
-	{
-		if (has_recived_end && pin_current_state)
-		{
-			//
-			has_recived_start = true;
-			has_recived_end = false;
-			Serial.println("Cont Start ...");
-			return;
-		}
+	// if (has_recived_start != true)
+	// {
+	// 	// look for a change from high to low
+	// 	// pin_current_state = digitalRead(recPin);
 
-		if (!has_recived_end)
-		{
+	// 	if (pin_last_state && !pin_current_state)
+	// 	{
+	// 		has_recived_start = true;
+	// 		pin_last_state = pin_current_state;
+	// 		Serial.println("Found Start Bit");
+	// 	}
+	// }
 
-			if (current_buffer_bit == 15)
-			{
-				bitWrite(buffer, current_buffer_bit, pin_current_state);
-				current_buffer_bit++;
-				Serial.println(buffer, HEX);
-				Serial.println(buffer, BIN);
+	// if (has_recived_start == true)
+	// {
+	// 	if (has_recived_end && pin_current_state)
+	// 	{
+	// 		//
+	// 		has_recived_start = true;
+	// 		has_recived_end = false;
+	// 		Serial.println("Cont Start ...");
+	// 		return;
+	// 	}
 
-				buffer = 0;
-				current_buffer_bit = 0;
-				// has_recived_start = false;
-				has_recived_end = true;
-			}
-			else
-			{
-				bitWrite(buffer, current_buffer_bit, pin_current_state);
-				current_buffer_bit++;
-			}
-		}
-	}
+	// }
 }
 
 void loop()
 {
 	// your program here...
+
+
 }
