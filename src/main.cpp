@@ -51,17 +51,9 @@ void setup()
 ISR(TIMER1_COMPA_vect)
 {
 
-	current_pin_in = digitalRead(recPin);
-	int sum = pin_in[0] + pin_in[1] + pin_in[2];
-	if (sum > 1)
-	{
-		pin_current_state = false;
-	}
-	else
-	{
-		pin_current_state = true;
-	}
-	// pin_current_state = digitalRead(recPin);
+	// current_pin_in = digitalRead(recPin);
+	
+	pin_current_state = digitalRead(recPin);
 
 	if (has_recived_start != true)
 	{
@@ -75,7 +67,8 @@ ISR(TIMER1_COMPA_vect)
 			Serial.println("Found Start Bit");
 		}
 	}
-	else
+
+	if (has_recived_start == true)
 	{
 		if (has_recived_end && pin_current_state)
 		{
