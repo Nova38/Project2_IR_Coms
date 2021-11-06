@@ -3,46 +3,39 @@
 
 // constants won't change. Used here to set a pin number:
 const int recPin = 2;
-
 const int transPin = 3;
-// Generally, you should use "unsigned long" for variables that hold time
-
-// const long interval = 125;	 // interval at which to blink (microseconds)
-// unsigned long base_time = 0; // will store the start of the current cycles time
-
-const byte STARTBYTE = 0x02;
-const byte ENDBYTE = 0x03;
 
 // message storage
-const int buffer_size = 20;
-char sample_buffer[buffer_size];
-volatile int current_buffer_byte = 0;
-
-// current working byte
-volatile byte working_byte = 0b10000000;
-volatile int currert_bit = 0;
+const int buffer_size = 7;
+byte buffer = 0;
+volatile int current_buffer_bit = 0;
 
 // this is a flag for when the loop should print the buffer out
 volatile bool ready_to_print = false;
-bool has_recived_start = false;
-bool has_recived_end = false;
-volatile int pin_state = 0;
+volatile bool has_recived_start = false;
+volatile bool has_recived_end = false;
+
+volatile bool has_sampled_3times = false;
+
+//pin states
+volatile int pin_in[3] = {0, 0, 0};
+volatile int current_pin_in = 0;
+
+volatile bool pin_last_state = 1;
+volatile bool pin_current_state = 1;
 
 // working current byte
 
 void setup()
 {
 
-	// TIMER 1 for interrupt frequency 4000 Hz:
-	// TIMER 1 for interrupt frequency 8000 Hz:
+	// TIMER 1 for interrupt frequency 6001.500375093773 Hz:
 	cli();		// stop interrupts
 	TCCR1A = 0; // set entire TCCR1A register to 0
 	TCCR1B = 0; // same for TCCR1B
 	TCNT1 = 0;	// initialize counter value to 0
-	// set compare match register for 8000 Hz increments
-	OCR1A = 1999; // = 16000000 / (1 * 8000) - 1 (must be <65536)
-	OCR1A = 3999; // = 16000000 / (1 * 4000) - 1 (must be <65536)
-
+	// set compare match register for 6001.500375093773 Hz increments
+	OCR1A = 2665; // = 16000000 / (1 * 6001.500375093773) - 1 (must be <65536)
 	// turn on CTC mode
 	TCCR1B |= (1 << WGM12);
 	// Set CS12, CS11 and CS10 bits for 1 prescaler
@@ -58,51 +51,71 @@ void setup()
 
 ISR(TIMER1_COMPA_vect)
 {
-	//interrupt commands for TIMER 1 here
-
-	if (currert_bit == 8)
+	if (current_pin_in != 2)
 	{
-		Serial.print((char)working_byte);
-		// check if we have a start or an end bit.
-		if (working_byte == STARTBYTE)
-		{
-			has_recived_start = true;
+		pin_in[current_pin_in] = digitalRead(recPin);
+		current_pin_in++;
+	}
+	else
+	{
+		pin_in[current_pin_in] = digitalRead(recPin);
+		current_pin_in = 0;
+		int sum = pin_in[0] + pin_in[1] + pin_in[2];
+		if(sum > 1){
+			pin_current_state = false;
+		}else{
+			pin_current_state = true;
 		}
-		if (working_byte == ENDBYTE)
-		{
-			has_recived_end = true;
-		}
+		// pin_current_state = digitalRead(recPin);
 
-		if (has_recived_start)
+		if (has_recived_start != true)
 		{
-			if (has_recived_end || current_buffer_byte == buffer_size)
+			// look for a change from high to low
+			// pin_current_state = digitalRead(recPin);
+			
+			if (pin_last_state && !pin_current_state)
 			{
-				// transmit the buffer and reset it
-				Serial.println(sample_buffer);
-				current_buffer_byte = 0;
-				for (size_t i = 0; i < buffer_size; i++)
-				{
-					sample_buffer[current_buffer_byte] = 0;
-				}
+				has_recived_start = true;
+				pin_last_state = pin_current_state;
+				Serial.println("Found Start Bit");
 			}
-			else
+		
+		}
+		else
+		{
+			if (has_recived_end && pin_current_state)
+			{
+				//
+				has_recived_start = true;
+				has_recived_end = false;
+				Serial.println("Cont Start ...");
+				return;
+			}
+
+			if (!has_recived_end)
 			{
 
-				// if current buffer is not full
-				sample_buffer[current_buffer_byte] = (char)working_byte;
+				if (current_buffer_bit == 15)
+				{
+					bitWrite(buffer, current_buffer_bit, pin_current_state);
+					current_buffer_bit++;
+					
+					Serial.println(buffer, HEX);
+					Serial.println(buffer, BIN);
 
-				current_buffer_byte++;
-
-				// reset the ccurrent byte
-				currert_bit = 0;
-				working_byte = 0;
+					buffer = 0;
+					current_buffer_bit = 0;
+					// has_recived_start = false;
+					has_recived_end = true;
+				}
+				else
+				{
+					bitWrite(buffer, current_buffer_bit, pin_current_state);
+					current_buffer_bit++;
+				}
 			}
 		}
 	}
-
-	pin_state = digitalRead(recPin);
-	bitWrite(working_byte, currert_bit, pin_state);
-	currert_bit++;
 }
 
 void loop()
