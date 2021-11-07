@@ -47,13 +47,13 @@ void reset_timer(){
 void detectStart()
 {
 	
-noInterrupts();
-	if (!has_recived_start && has_recived_end)
+	noInterrupts();
+	if (!has_recived_start)
 	{
-		counter++;
+		// counter++;
 
 		// if(counter % 1 == 0){
-		// 	Serial.println("Reseting Timer");
+			Serial.println("          ");
 
 
 
@@ -117,14 +117,19 @@ ISR(TIMER1_COMPA_vect)
 		// 	Serial.print("\tDetected : ");
 			// Serial.print(buffer, DEC);
 		// 	Serial.print(" : ");			
-		// 	Serial.print(buffer, HEX);
-		// 	Serial.print(" : ");
+			Serial.print(buffer, HEX);
+			Serial.print(" : ");
 			Serial.println(buffer, BIN);
 
 			buffer = 0;
 			current_buffer_bit = 0;
 			has_recived_start = false;
-			has_recived_end = true;
+
+			TCCR1A = 0; // set entire TCCR1A register to 0
+    		TCCR1B = 0; // same for TCCR1B
+			TCNT1 = 0;	// initialize counter value to 0
+
+			// has_recived_end = true;
 		}
 		else
 		{
