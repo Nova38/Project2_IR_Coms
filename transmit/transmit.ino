@@ -10,7 +10,7 @@ volatile int buf = 0x00AA;  // 16-bit buffer
 volatile bool end_trans = false; // end of transmission
 const int bit_rate = 500; // 500 us per bit transmission
 
-const int tmp_buf = 0x00B7; // constant bit transmission mode
+const int tmp_buf = 0x0041; // constant bit transmission mode
 volatile bool start_const_trans = false;  //
 const int tmp_buf_value = 126; // tilde is used to start and end constant bit transmission mode
 
@@ -27,6 +27,11 @@ volatile int start_t = 1;
 /* used for looping buffer value */
 volatile int i = 0; // start loop at i == 0
 volatile bool start = true; // initalize with start as true
+
+const int error_packet = 0x0042;
+const int ber_packet = 3;
+volatile int ber_counter = 0;
+volatile bool error = false;
 
 /**
  * Transmit Data frame:
@@ -65,6 +70,7 @@ ISR(TIMER1_COMPA_vect){
       if(buf == tmp_buf_value){
         buf = tmp_buf;
         start_const_trans = !start_const_trans;
+        error = !error;
       }
 
 /*
@@ -149,6 +155,15 @@ ISR(TIMER1_COMPA_vect){
         end_t--;
       }
       digitalWrite(pinRec, HIGH);
+
+      if(error && ber_counter > ber_packet){
+        buf = error_packet;
+        ber_counter = 0;
+      }
+      else{
+        buf = tmp_buf;
+        ber_counter++;
+      }
     }
 }
 
