@@ -3,6 +3,8 @@
 
 // constants won't change. Used here to set a pin number:
 const int recPin = 2;
+const int errorPin = 3;
+
 
 // message storage
 const int buffer_size = 7;
@@ -12,14 +14,16 @@ volatile int current_buffer_bit = 0;
 const int buffer_storage_size = 20;
 volatile int buffer_storage[20];
 
-
+const byte expected = 0x41;
 
 // this is a flag for when the loop should print the buffer out
 volatile bool ready_to_print = false;
 volatile bool has_recived_start = false;
 volatile bool has_recived_end = true;
 
-volatile int counter = 0;
+volatile int err_counter = 0;
+
+volatile bool error_mode = false;
 
 volatile bool pin_current_state = 1;
 
@@ -91,7 +95,7 @@ void setup()
 	// reset_timer();
 
 	pinMode(recPin, INPUT);
-	
+	pinMode(errorPin, INPUT_PULLUP);
 
 	
 	
@@ -114,12 +118,23 @@ ISR(TIMER1_COMPA_vect)
 
 			bitWrite(buffer, current_buffer_bit, pin_current_state);
 			current_buffer_bit++;
-		// 	Serial.print("\tDetected : ");
-			// Serial.print(buffer, DEC);
-		// 	Serial.print(" : ");			
+			bool error_detected = buffer != expected;
+			err_counter++;
+			// Serial.print("\tDetected : ");
+			// Serial.print((char)buffer);
+			// Serial.print(" :    ");			
 			Serial.print(buffer, HEX);
-			Serial.print(" : ");
-			Serial.println(buffer, BIN);
+			// Serial.print(" : ");
+			// Serial.print(buffer, BIN);
+			if(error_mode){
+				if( error_detected){
+					Serial.println(" : Error");
+				}
+			}else{
+				Serial.print(" : ");			
+
+				Serial.println((char)buffer);
+			}
 
 			buffer = 0;
 			current_buffer_bit = 0;
@@ -147,9 +162,28 @@ ISR(TIMER1_COMPA_vect)
 	}
 
 }
-
+unsigned long previousMillis = 0;
+unsigned long err_interval = 1000;
+unsigned long err_counter_interval = 5000;
 void loop()
 {
+  unsigned long currentMillis = millis();
 
+	if(currentMillis - previousMillis >= err_interval){
+		previousMillis = currentMillis;
+		
+		error_mode = !digitalRead(errorPin);
 
+		// noInterrupts();
+
+		// interrupts();
+
+	}
+	if (error_mode && currentMillis - previousMillis >= err_counter_interval)
+	{
+		Serial.print("Errors per 5 sec : ");
+		Serial.println(err_counter);
+		err_counter = 0;
+	}
+	
 }
